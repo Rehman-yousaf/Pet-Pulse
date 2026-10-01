@@ -1,0 +1,59 @@
+rules_version = '2';
+// PetPulse: Auth + Firestore only. All data under users/{uid}/...
+//
+// YOU MUST DEPLOY THESE RULES in Firebase Console:
+// 1. Open https://console.firebase.google.com
+// 2. Select project → Firestore Database → Rules
+// 3. Replace contents with this file and click Publish
+// Otherwise you will get "Missing or insufficient permissions" errors.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // User profile and preferences (theme, etc.)
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Subcollections under user: pets, notificationSettings
+      match /pets/{petId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        match /medications/{medId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+        match /dietPlans/{dietId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+        match /vaccinations/{vaccinationId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+        match /logs/{logId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+        match /vetVisits/{visitId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+      }
+      match /notificationSettings/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Activity feed: activities/{userId}/items/{activityId}
+    match /activities/{activityUserId}/items/{itemId} {
+      allow read, write: if request.auth != null && request.auth.uid == activityUserId;
+    }
+
+    // Community: posts — read/create for any auth user; update for counts (likes/comments); delete only author
+    match /posts/{postId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      match /comments/{commentId} {
+        allow read, create: if request.auth != null;
+      }
+      match /likes/{userId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}
