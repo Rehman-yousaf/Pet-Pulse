@@ -1,8 +1,8 @@
-// PetPulse Design System — Grey + Orange theme
+// PetPulse design system — orange + light grey
 export const Colors = {
-  primary: '#FF7A00',
+  primary: '#FF8C42',
   secondary: '#EA580C',
-  background: '#F5F6F8',
+  background: '#F8F9FB',
   white: '#FFFFFF',
   text: '#111827',
   grey: '#374151',

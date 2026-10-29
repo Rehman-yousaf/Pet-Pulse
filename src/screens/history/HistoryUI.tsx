@@ -3,7 +3,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
-  ScrollView,
+  FlatList,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,6 +15,7 @@ import { useTheme } from '@/src/context/ThemeContext';
 import type { LogEntry } from '@/src/services/logService';
 import { deleteLog, listenToLogs } from '@/src/services/logService';
 import { getPet } from '@/src/services/petService';
+import { safeBack } from '@/src/utils/navigation';
 
 function formatLogDate(entry: LogEntry): string {
   try {
@@ -67,7 +68,14 @@ export function HistoryUI() {
   const pid = (petId as string) ?? '';
 
   useEffect(() => {
-    if (uid && pid) getPet(uid, pid).then((p) => setPetName(p?.name ?? 'Pet'));
+    if (!uid || !pid) return;
+    let cancelled = false;
+    getPet(uid, pid).then((p) => {
+      if (!cancelled) setPetName(p?.name ?? 'Pet');
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [uid, pid]);
 
   useEffect(() => {
@@ -95,23 +103,27 @@ export function HistoryUI() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => safeBack(router)}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>History</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{petName ? `${petName} history` : 'History'}</Text>
         <View style={styles.headerRight} />
       </View>
 
-      <ScrollView style={styles.list} contentContainerStyle={styles.listInner}>
-        {logs.length === 0 ? (
+      <FlatList
+        data={logs}
+        keyExtractor={(log) => log.id}
+        style={styles.list}
+        contentContainerStyle={styles.listInner}
+        keyboardShouldPersistTaps="handled"
+        ListEmptyComponent={
           <View style={[styles.empty, { backgroundColor: colors.card }]}>
             <Ionicons name="time-outline" size={48} color={colors.grey} />
             <Text style={[styles.emptyText, { color: colors.grey }]}>No log entries yet</Text>
           </View>
-        ) : (
-          logs.map((log) => (
+        }
+        renderItem={({ item: log }) => (
             <View
-              key={log.id}
               style={[
                 styles.card,
                 {
@@ -141,9 +153,8 @@ export function HistoryUI() {
                 <Ionicons name="trash-outline" size={22} color={colors.error} />
               </TouchableOpacity>
             </View>
-          ))
         )}
-      </ScrollView>
+      />
     </SafeAreaView>
   );
 }

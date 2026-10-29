@@ -15,16 +15,17 @@ import {
 import { registerForPushNotificationsAsync } from '@/src/utils/Notifications';
 
 function ThemedStack() {
-  const { colors } = useTheme();
+  const { colors, colorScheme } = useTheme();
   return (
     <>
-      <StatusBar style="dark" backgroundColor="#FFFFFF" />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} backgroundColor={colors.card} />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.primary },
           headerTintColor: '#fff',
           headerTitleStyle: { fontWeight: 'bold' },
           headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -63,14 +64,14 @@ function ThemedStack() {
             headerShown: false,
           }}
         />
-        <Stack.Screen name="pets/[petId]" options={{ headerShown: false }} />
+        <Stack.Screen name="pet/[petId]" options={{ headerShown: false }} />
         <Stack.Screen name="history/[petId]" options={{ headerShown: false }} />
         <Stack.Screen
           name="vet-visits"
           options={{
             title: 'Vet visits',
             headerShown: true,
-            headerStyle: { backgroundColor: '#FF7A00' },
+            headerStyle: { backgroundColor: colors.primary },
             headerTintColor: '#fff',
             headerBackTitle: 'Back',
           }}

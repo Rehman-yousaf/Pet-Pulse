@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -25,9 +25,9 @@ import {
   listenVetVisits,
 } from '@/src/services/vetVisitService';
 
-const BACKGROUND = '#F5F5F5';
+const BACKGROUND = '#F8F9FB';
 const CARD_BG = '#ffffff';
-const ORANGE = '#FF7A00';
+const ORANGE = '#FF8C42';
 const SPACING = 16;
 
 function formatDate(s: string): string {
@@ -185,11 +185,12 @@ export function VetVisitsUI() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: BACKGROUND }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: BACKGROUND }]} edges={[]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <TouchableOpacity
           style={styles.scheduleBtn}
@@ -260,7 +261,6 @@ export function VetVisitsUI() {
                   keyboardShouldPersistTaps="handled"
                   contentContainerStyle={styles.scheduleModalScrollContent}
                 >
-                  {console.log('Schedule modal rendered')}
                   <Text style={styles.modalTitle}>Schedule visit</Text>
                   {pets.length === 0 ? (
                     <Text style={styles.empty}>Add a pet first from Home.</Text>

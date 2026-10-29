@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  FlatList,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,6 +22,7 @@ import { addPet, subscribeToPets } from '@/src/services/petService';
 import { getRandomPetQuote } from '@/src/utils/getRandomPetQuote';
 import { getGreeting } from '@/src/utils/Helpers';
 import { PET_TYPES } from '@/src/utils/Helpers';
+import { keyboardAvoidingBehavior } from '@/src/utils/layout';
 
 export function MainDashboardUI() {
   const router = useRouter();
@@ -44,8 +45,12 @@ export function MainDashboardUI() {
   useEffect(() => {
     const uid = user?.uid;
     if (!uid) return;
-    unsubRef.current = subscribeToPets(uid, setPets);
+    let cancelled = false;
+    unsubRef.current = subscribeToPets(uid, (next) => {
+      if (!cancelled) setPets(next);
+    });
     return () => {
+      cancelled = true;
       unsubRef.current?.();
     };
   }, [user?.uid]);
@@ -83,14 +88,8 @@ export function MainDashboardUI() {
     }
   }, [user?.uid, addForm]);
 
-  return (
+  const listHeader = (
     <>
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-    <ScrollView
-      style={styles.scrollView}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
       <View style={[styles.header, { backgroundColor: colors.white }]}>
         <View>
           <Text style={[styles.greetingText, { color: colors.grey }]}>{getGreeting()}!</Text>
@@ -102,7 +101,7 @@ export function MainDashboardUI() {
       </View>
 
       <TouchableOpacity
-        style={styles.vetCard}
+        style={[styles.vetCard, { backgroundColor: colors.primary }]}
         onPress={() => router.push('/vet-visits' as any)}
         activeOpacity={0.85}
       >
@@ -128,64 +127,72 @@ export function MainDashboardUI() {
         <Text style={[styles.pawInsightQuote, { color: colors.text }]}>{dailyQuote}</Text>
       </View>
 
-      <View style={[styles.section, styles.sectionSpaced]}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Family</Text>
-          <TouchableOpacity
-            style={[styles.addBtn, { backgroundColor: colors.primary }]}
-            onPress={() => setAddModalVisible(true)}
-          >
-            <Ionicons name="add" size={20} color={colors.white} />
-            <Text style={[styles.addBtnText, { color: colors.white }]}>Add Pet</Text>
-          </TouchableOpacity>
-        </View>
-
-        {pets.length === 0 ? (
-          <View style={[styles.emptyPets, { backgroundColor: colors.card, borderColor: colors.grey + '40' }]}>
-            <Text style={[styles.emptyText, { color: colors.grey }]}>You haven't added any pets yet</Text>
-            <TouchableOpacity
-              style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
-              onPress={() => setAddModalVisible(true)}
-            >
-              <Text style={[styles.emptyBtnText, { color: colors.white }]}>Add your first pet</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.grey + '40' }]}>
-              <Ionicons name="search" size={20} color={colors.grey} />
-              <TextInput
-                style={[styles.searchInput, { color: colors.text }]}
-                placeholder="Search by name or type..."
-                placeholderTextColor={colors.grey}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Ionicons name="close-circle" size={20} color={colors.grey} />
-                </TouchableOpacity>
-              )}
-            </View>
-            {filteredPets.length === 0 ? (
-              <Text style={[styles.emptyText, { color: colors.grey }]}>No pets match your search</Text>
-            ) : (
-              filteredPets.map((pet) => (
-                <PetCard
-                  key={pet.id}
-                  name={pet.name}
-                  breed={pet.breed ?? ''}
-                  type={pet.type}
-                  age={pet.age}
-                  onPress={() => router.push(`/pets/${pet.id}` as any)}
-                />
-              ))
-            )}
-          </>
-        )}
+      <View style={styles.sectionHeaderContainer}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Family</Text>
+        <TouchableOpacity
+          style={[styles.addPetButton, { backgroundColor: colors.primary }]}
+          onPress={() => setAddModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={18} color={colors.white} />
+          <Text style={[styles.addPetButtonText, { color: colors.white }]}>Add Pet</Text>
+        </TouchableOpacity>
       </View>
 
-      </ScrollView>
+      {pets.length === 0 ? (
+        <View style={[styles.emptyPets, { backgroundColor: colors.card, borderColor: colors.grey + '40' }]}>
+          <Text style={[styles.emptyText, { color: colors.grey }]}>You haven't added any pets yet</Text>
+          <TouchableOpacity
+            style={[styles.emptyBtn, { backgroundColor: colors.primary }]}
+            onPress={() => setAddModalVisible(true)}
+          >
+            <Text style={[styles.emptyBtnText, { color: colors.white }]}>Add your first pet</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.grey + '40' }]}>
+          <Ionicons name="search" size={20} color={colors.grey} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Search by name or type..."
+            placeholderTextColor={colors.grey}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={colors.grey} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+      {pets.length > 0 && filteredPets.length === 0 ? (
+        <Text style={[styles.emptyText, { color: colors.grey }]}>No pets match your search</Text>
+      ) : null}
+    </>
+  );
+
+  return (
+    <>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <FlatList
+      data={pets.length === 0 ? [] : filteredPets}
+      keyExtractor={(pet) => pet.id}
+      style={styles.scrollView}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={listHeader}
+      renderItem={({ item: pet }) => (
+        <PetCard
+          name={pet.name}
+          breed={pet.breed ?? ''}
+          type={pet.type}
+          age={pet.age}
+          onPress={() => router.push(`/pet/${pet.id}` as any)}
+        />
+      )}
+    />
     </SafeAreaView>
 
       <Modal
@@ -199,7 +206,7 @@ export function MainDashboardUI() {
             <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
             <KeyboardAvoidingView
               style={styles.modalKAV}
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              behavior={keyboardAvoidingBehavior}
             >
               <ScrollView
                 showsVerticalScrollIndicator={false}
@@ -285,7 +292,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FF7A00',
+    backgroundColor: '#FF8C42',
     borderRadius: 16,
     padding: 18,
     marginTop: 16,
@@ -323,22 +330,30 @@ const styles = StyleSheet.create({
   pawInsightQuote: { fontSize: 15, lineHeight: 22, fontStyle: 'italic' },
   section: { marginBottom: 20 },
   sectionSpaced: { marginTop: 16 },
-  sectionHeader: {
+  sectionHeaderContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 24,
     marginBottom: 12,
+    paddingHorizontal: 4,
   },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold' },
-  addBtn: {
+  sectionTitle: { fontSize: 20, fontWeight: '700' },
+  addPetButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    justifyContent: 'center',
+    shadowColor: '#FF8C42',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  addBtnText: { fontSize: 14, fontWeight: '600' },
+  addPetButtonText: { fontSize: 14, fontWeight: '600' },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',

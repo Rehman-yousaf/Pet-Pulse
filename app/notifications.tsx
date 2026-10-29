@@ -8,15 +8,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { safeBack } from '@/src/utils/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 import type { ActivityItem } from '@/src/services/activityService';
 import { markActivityRead, subscribeToActivities } from '@/src/services/activityService';
 import { timeAgo } from '@/src/utils/timeAgo';
 
-const PRIMARY = '#FF7A00';
-const BACKGROUND = '#F5F5F5';
+const PRIMARY = '#FF8C42';
+const BACKGROUND = '#F8F9FB';
 const CARD_RADIUS = 14;
 const SPACING = 16;
 
@@ -72,7 +72,6 @@ function EmptyState() {
 
 export default function NotificationsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
 
@@ -99,8 +98,8 @@ export default function NotificationsScreen() {
   if (!user) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+        <View style={styles.header}>
+          <Pressable style={styles.backBtn} onPress={() => safeBack(router)}>
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </Pressable>
           <View>
@@ -114,8 +113,8 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+        <View style={styles.header}>
+          <Pressable style={styles.backBtn} onPress={() => safeBack(router)}>
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </Pressable>
           <View>

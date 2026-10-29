@@ -11,13 +11,13 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/src/context/ThemeContext';
 import type { VetPlace } from '@/src/services/mapsService';
 import { searchNearbyVets } from '@/src/services/mapsService';
 
-const ORANGE = '#FF7A00';
-const BACKGROUND = '#f5f5f5';
+const ORANGE = '#FF8C42';
+const BACKGROUND = '#F8F9FB';
 
 const DEFAULT_REGION = {
   latitude: 37.78825,
@@ -84,6 +84,8 @@ const VetCard = ({
 
 export default function MapScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const mountedRef = useRef(true);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [vets, setVets] = useState<VetPlace[]>([]);
   const [topVets, setTopVets] = useState<VetWithDistance[]>([]);
@@ -97,6 +99,7 @@ export default function MapScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
+        if (!mountedRef.current) return;
         setError('Location permission denied');
         setLoading(false);
         return;
@@ -106,9 +109,11 @@ export default function MapScreen() {
         accuracy: Location.Accuracy.Balanced,
       });
       const { latitude, longitude } = loc.coords;
+      if (!mountedRef.current) return;
       setLocation({ latitude, longitude });
 
       const results = await searchNearbyVets(latitude, longitude);
+      if (!mountedRef.current) return;
       setVets(results);
 
       const withDistance: VetWithDistance[] = results.map((vet) => ({
@@ -127,17 +132,22 @@ export default function MapScreen() {
         });
       }
     } catch (e) {
+      if (!mountedRef.current) return;
       const msg = e instanceof Error ? e.message : 'Failed to load vets';
       setError(msg);
       setVets([]);
       setTopVets([]);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
     fetchLocationAndVets();
+    return () => {
+      mountedRef.current = false;
+    };
   }, [fetchLocationAndVets]);
 
   const region = location
@@ -149,7 +159,7 @@ export default function MapScreen() {
     : DEFAULT_REGION;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: BACKGROUND }]} edges={['top']}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {loading && !location ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={ORANGE} />
@@ -190,7 +200,7 @@ export default function MapScreen() {
             </MapView>
           </View>
 
-          <View style={styles.bottomContainer}>
+          <View style={[styles.bottomContainer, { paddingBottom: 16 + insets.bottom }]}>
             <View style={styles.bottomHeader}>
               <Text style={styles.bottomTitle}>Nearest vets</Text>
               <TouchableOpacity
@@ -212,7 +222,7 @@ export default function MapScreen() {
           </View>
         </>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { keyboardAvoidingBehavior } from '@/src/utils/layout';
 import { UserAvatar } from '@/src/components/UserAvatar';
 import { CommentsModal } from '@/src/components/CommentsModal';
 import { useAuth } from '@/src/context/AuthContext';
@@ -75,8 +75,11 @@ export default function SocialScreen() {
     };
   }, [user?.uid]);
 
+  const postIds = useMemo(() => posts.map((p) => p.id).join(','), [posts]);
+
   useEffect(() => {
     if (!user?.uid || posts.length === 0) return;
+    let cancelled = false;
     const loadLiked = async () => {
       const next: Record<string, boolean> = {};
       await Promise.all(
@@ -88,10 +91,13 @@ export default function SocialScreen() {
           }
         })
       );
-      setLikedByMe((prev) => ({ ...prev, ...next }));
+      if (!cancelled) setLikedByMe((prev) => ({ ...prev, ...next }));
     };
     loadLiked();
-  }, [user?.uid, posts.map((p) => p.id).join(',')]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, postIds]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -230,11 +236,11 @@ export default function SocialScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         style={styles.keyboard}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        behavior={keyboardAvoidingBehavior}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
       >
         {postError ? (
           <View style={[styles.errorBanner, { backgroundColor: colors.error + '20' }]}>
@@ -265,7 +271,7 @@ export default function SocialScreen() {
                 editable={!posting}
               />
               <TouchableOpacity
-                style={[styles.postBtn, { backgroundColor: '#FF7A00' }]}
+                style={[styles.postBtn, { backgroundColor: colors.primary }]}
                 onPress={handleCreatePost}
                 disabled={posting || !input.trim()}
               >
@@ -279,16 +285,17 @@ export default function SocialScreen() {
               data={posts}
               renderItem={renderItem}
               keyExtractor={keyExtractor}
+              keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.listContent}
               ListEmptyComponent={emptyListComponent}
               ListFooterComponent={
                 lastDoc && posts.length > 0 ? (
                   <TouchableOpacity
-                    style={[styles.loadMoreBtn, { borderColor: '#FF7A00' }]}
+                    style={[styles.loadMoreBtn, { borderColor: colors.primary }]}
                     onPress={handleLoadMore}
                     disabled={loadingMore}
                   >
-                    <Text style={[styles.loadMoreText, { color: '#FF7A00' }]}>
+                    <Text style={[styles.loadMoreText, { color: colors.primary }]}>
                       {loadingMore ? 'Loading…' : 'Load more'}
                     </Text>
                   </TouchableOpacity>
@@ -298,7 +305,7 @@ export default function SocialScreen() {
                 <RefreshControl
                   refreshing={refreshing}
                   onRefresh={onRefresh}
-                  tintColor="#FF7A00"
+                  tintColor={colors.primary}
                 />
               }
             />
@@ -311,12 +318,12 @@ export default function SocialScreen() {
           onClose={() => setCommentPostId(null)}
         />
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F8F9FB' },
   keyboard: { flex: 1 },
   errorBanner: {
     flexDirection: 'row',
@@ -365,7 +372,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
   },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#FF7A00', marginBottom: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#FF8C42', marginBottom: 8 },
   emptySubtitle: { fontSize: 15, color: '#666', textAlign: 'center' },
   card: {
     borderRadius: 16,

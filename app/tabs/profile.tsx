@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,11 +19,7 @@ import { useAuth } from '@/src/context/AuthContext';
 import { useTheme } from '@/src/context/ThemeContext';
 import { db } from '@/src/services/firebaseConfig';
 import type { ThemePreference } from '@/src/services/userService';
-
-const PRIMARY = '#FF7A00';
-const BACKGROUND = '#F2F2F2';
-const CARD_BG = '#FFFFFF';
-const DANGER = '#E53935';
+import { keyboardAvoidingBehavior } from '@/src/utils/layout';
 
 const THEMES: { value: ThemePreference; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -34,7 +29,7 @@ const THEMES: { value: ThemePreference; label: string }[] = [
 
 export default function ProfileScreen() {
   const { user, profile, logout, isLoading: authLoading } = useAuth();
-  const { currentTheme, setTheme } = useTheme();
+  const { currentTheme, setTheme, colors } = useTheme();
   const router = useRouter();
 
   const [name, setName] = useState('');
@@ -77,9 +72,9 @@ export default function ProfileScreen() {
 
   if (authLoading || !user) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: BACKGROUND }]} edges={['top']}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={PRIMARY} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading…</Text>
         </View>
       </SafeAreaView>
@@ -87,8 +82,8 @@ export default function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: BACKGROUND }]} edges={['top']}>
-      <KeyboardAvoidingView style={styles.kav} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <KeyboardAvoidingView style={styles.kav} behavior={keyboardAvoidingBehavior} keyboardVerticalOffset={0}>
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
@@ -100,7 +95,7 @@ export default function ProfileScreen() {
           <Text style={styles.avatarHint}>Your profile</Text>
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
           <Text style={styles.label}>Name</Text>
           <TextInput
             style={styles.input}
@@ -112,7 +107,7 @@ export default function ProfileScreen() {
           <Text style={[styles.label, styles.labelTop]}>Email</Text>
           <Text style={styles.emailValue}>{email}</Text>
           <TouchableOpacity
-            style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+            style={[styles.saveBtn, { backgroundColor: colors.primary }, saving && styles.saveBtnDisabled]}
             onPress={handleSave}
             disabled={saving}
           >
@@ -120,7 +115,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
           <Text style={styles.sectionTitle}>Theme</Text>
           <View style={styles.themeRow}>
             {THEMES.map((t) => (
@@ -128,7 +123,7 @@ export default function ProfileScreen() {
                 key={t.value}
                 style={[
                   styles.themeChip,
-                  currentTheme === t.value && styles.themeChipActive,
+                  currentTheme === t.value && { backgroundColor: colors.primary, borderColor: colors.primary },
                 ]}
                 onPress={() => setTheme(t.value)}
               >
@@ -162,7 +157,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
   kav: { flex: 1 },
   scroll: { flex: 1 },
@@ -187,7 +181,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   card: {
-    backgroundColor: CARD_BG,
+    backgroundColor: '#FFFFFF',
     padding: 20,
     borderRadius: 16,
     marginBottom: 16,
@@ -217,7 +211,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   saveBtn: {
-    backgroundColor: PRIMARY,
+    backgroundColor: '#FF8C42',
     paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
@@ -245,10 +239,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e5e5',
   },
-  themeChipActive: {
-    backgroundColor: PRIMARY,
-    borderColor: PRIMARY,
-  },
   themeChipText: { fontSize: 14, color: '#333', fontWeight: '500' },
   themeChipTextActive: { color: '#fff' },
   logoutBtn: {
@@ -256,7 +246,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: DANGER,
+    backgroundColor: '#E53935',
     paddingVertical: 16,
     borderRadius: 16,
     marginTop: 24,

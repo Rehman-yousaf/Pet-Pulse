@@ -19,21 +19,21 @@ export interface ThemeColors {
 }
 
 const LIGHT_COLORS: ThemeColors = {
-  primary: '#FF7A00',
+  primary: '#FF8C42',
   secondary: '#EA580C',
-  background: '#F5F6F8',
+  background: '#F8F9FB',
   text: '#111827',
   grey: '#374151',
   white: '#FFFFFF',
   card: '#FFFFFF',
   error: '#DC2626',
   border: '#E4E6EB',
-  tabActive: '#FF7A00',
+  tabActive: '#FF8C42',
   tabInactive: '#A0A4A8',
 };
 
 const DARK_COLORS: ThemeColors = {
-  primary: '#FF7A00',
+  primary: '#FF8C42',
   secondary: '#EA580C',
   background: '#111827',
   text: '#F9FAFB',
@@ -42,7 +42,7 @@ const DARK_COLORS: ThemeColors = {
   card: '#1F2937',
   error: '#DC2626',
   border: '#374151',
-  tabActive: '#FF7A00',
+  tabActive: '#FF8C42',
   tabInactive: '#A0A4A8',
 };
 

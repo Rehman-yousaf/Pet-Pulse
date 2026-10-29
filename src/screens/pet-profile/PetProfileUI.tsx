@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { safeBack } from '@/src/utils/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -41,12 +42,15 @@ export function PetProfileUI() {
 
   useEffect(() => {
     if (!uid || !pid) return;
+    let cancelled = false;
     getPet(uid, pid).then((p) => {
-      if (p) {
-        setPetName(p.name);
-        setPetType(p.type || 'pet');
-      }
+      if (cancelled || !p) return;
+      setPetName(p.name);
+      setPetType(p.type || 'pet');
     });
+    return () => {
+      cancelled = true;
+    };
   }, [uid, pid]);
 
   const unsubM = useRef<ReturnType<typeof subscribeToMedications> | null>(null);
@@ -160,7 +164,7 @@ export function PetProfileUI() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => safeBack(router)}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -184,7 +188,7 @@ export function PetProfileUI() {
         ))}
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} keyboardShouldPersistTaps="handled">
         {tab === 'overview' && (
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.grey + '30' }]}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>Quick actions</Text>

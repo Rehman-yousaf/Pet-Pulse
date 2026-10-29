@@ -18,6 +18,8 @@ import { useAuth } from '@/src/context/AuthContext';
 import { useTheme } from '@/src/context/ThemeContext';
 import type { VaccinationInput } from '@/src/services/vaccinationService';
 import { add, getOne, update } from '@/src/services/vaccinationService';
+import { keyboardAvoidingBehavior } from '@/src/utils/layout';
+import { safeBack } from '@/src/utils/navigation';
 
 function toDateStr(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -50,8 +52,10 @@ export function VaccineFormScreen({ mode }: { mode: 'new' | 'edit' }) {
       setLoadDone(true);
       return;
     }
+    let cancelled = false;
     getOne(uid, petId, vaccinationId)
       .then((v) => {
+        if (cancelled) return;
         if (v) {
           setForm({
             name: v.name,
@@ -62,7 +66,12 @@ export function VaccineFormScreen({ mode }: { mode: 'new' | 'edit' }) {
         }
         setLoadDone(true);
       })
-      .catch(() => setLoadDone(true));
+      .catch(() => {
+        if (!cancelled) setLoadDone(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [mode, uid, petId, vaccinationId]);
 
   const onDatePick = useCallback(
@@ -101,7 +110,7 @@ export function VaccineFormScreen({ mode }: { mode: 'new' | 'edit' }) {
           vetName: form.vetName?.trim() || null,
         });
       }
-      router.back();
+      safeBack(router);
     } catch (e) {
       console.warn('Save vaccination error:', e);
     } finally {
@@ -131,13 +140,13 @@ export function VaccineFormScreen({ mode }: { mode: 'new' | 'edit' }) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => safeBack(router)}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.text }]}>{mode === 'new' ? 'Add vaccination' : 'Edit vaccination'}</Text>
         <View style={styles.placeholder} />
       </View>
-      <KeyboardAvoidingView style={styles.kav} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
+      <KeyboardAvoidingView style={styles.kav} behavior={keyboardAvoidingBehavior} keyboardVerticalOffset={0}>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollInner} keyboardShouldPersistTaps="handled">
           <Text style={[styles.label, { color: colors.grey }]}>Name *</Text>
           <TextInput

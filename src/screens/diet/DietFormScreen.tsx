@@ -18,6 +18,8 @@ import { useAuth } from '@/src/context/AuthContext';
 import { useTheme } from '@/src/context/ThemeContext';
 import type { DietPlanInput } from '@/src/services/dietService';
 import { add, getOne, update } from '@/src/services/dietService';
+import { keyboardAvoidingBehavior } from '@/src/utils/layout';
+import { safeBack } from '@/src/utils/navigation';
 
 function formatTime(h: number, m: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
@@ -44,8 +46,10 @@ export function DietFormScreen({ mode }: { mode: 'new' | 'edit' }) {
       setLoadDone(true);
       return;
     }
+    let cancelled = false;
     getOne(uid, petId, dietId)
       .then((plan) => {
+        if (cancelled) return;
         if (plan) {
           setForm({
             title: plan.title,
@@ -55,7 +59,12 @@ export function DietFormScreen({ mode }: { mode: 'new' | 'edit' }) {
         }
         setLoadDone(true);
       })
-      .catch(() => setLoadDone(true));
+      .catch(() => {
+        if (!cancelled) setLoadDone(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [mode, uid, petId, dietId]);
 
   const onTimePick = useCallback(
@@ -85,7 +94,7 @@ export function DietFormScreen({ mode }: { mode: 'new' | 'edit' }) {
           time: form.time?.trim() || null,
         });
       }
-      router.back();
+      safeBack(router);
     } catch (e) {
       console.warn('Save diet plan error:', e);
     } finally {
@@ -112,13 +121,13 @@ export function DietFormScreen({ mode }: { mode: 'new' | 'edit' }) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => safeBack(router)}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.text }]}>{mode === 'new' ? 'Add diet plan' : 'Edit diet plan'}</Text>
         <View style={styles.placeholder} />
       </View>
-      <KeyboardAvoidingView style={styles.kav} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
+      <KeyboardAvoidingView style={styles.kav} behavior={keyboardAvoidingBehavior} keyboardVerticalOffset={0}>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollInner} keyboardShouldPersistTaps="handled">
           <Text style={[styles.label, { color: colors.grey }]}>Title *</Text>
           <TextInput

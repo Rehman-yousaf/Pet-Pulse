@@ -6,12 +6,12 @@
 import React from 'react';
 import {
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { keyboardAvoidingBehavior } from '@/src/utils/layout';
 
 interface ScreenWrapperProps {
   children: React.ReactNode;
@@ -19,7 +19,7 @@ interface ScreenWrapperProps {
   contentContainerStyle?: ViewStyle;
   /** Extra bottom padding so submit button stays visible when keyboard is open. Default 40. */
   paddingBottom?: number;
-  /** Safe area edges. Default ['top'] for screens with header. */
+  /** Safe area edges. Default none — stack/tab headers already inset the status bar. */
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
 }
 
@@ -28,13 +28,13 @@ export function ScreenWrapper({
   style,
   contentContainerStyle,
   paddingBottom = 40,
-  edges = ['top'],
+  edges = [],
 }: ScreenWrapperProps) {
   return (
     <SafeAreaView style={[styles.safe, style]} edges={edges}>
       <KeyboardAvoidingView
         style={styles.keyboard}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={keyboardAvoidingBehavior}
         keyboardVerticalOffset={0}
       >
         <ScrollView
