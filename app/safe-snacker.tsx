@@ -62,9 +62,10 @@ function toPetContext(pet: Pet): PetContext {
 
 export default function SafeSnackerScreen() {
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
   const [pets, setPets] = useState<Pet[]>([]);
+  const [petsReady, setPetsReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>('scan');
   const [query, setQuery] = useState('');
@@ -77,17 +78,30 @@ export default function SafeSnackerScreen() {
   const scanLock = useRef(false);
 
   useEffect(() => {
+    if (authLoading) return;
     const uid = user?.uid;
     if (!uid) {
       setPets([]);
       setSelectedId(null);
+      setPetsReady(true);
       return;
     }
+    setPetsReady(false);
     return subscribeToPets(uid, (next) => {
       setPets(next);
-      setSelectedId((current) => (current && next.some((pet) => pet.id === current) ? current : next[0]?.id ?? null));
+      setSelectedId((current) => {
+        if (current && next.some((pet) => pet.id === current)) return current;
+        return next[0]?.id ?? null;
+      });
+      setPetsReady(true);
     });
-  }, [user?.uid]);
+  }, [authLoading, user?.uid]);
+
+  useEffect(() => {
+    if (pets.length > 0 && !selectedId) {
+      setSelectedId(pets[0].id);
+    }
+  }, [pets, selectedId]);
 
   const selectedPet = useMemo(() => pets.find((pet) => pet.id === selectedId) ?? null, [pets, selectedId]);
   const petContext = selectedPet ? toPetContext(selectedPet) : null;
@@ -164,7 +178,9 @@ export default function SafeSnackerScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={[styles.petBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        {pets.length === 0 ? (
+        {!petsReady || authLoading ? (
+          <ActivityIndicator color={colors.primary} style={styles.petLoading} />
+        ) : pets.length === 0 ? (
           <Text style={[styles.emptyPets, { color: colors.grey }]}>Add a pet on Home to check snacks.</Text>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.petRow}>
@@ -190,17 +206,21 @@ export default function SafeSnackerScreen() {
         ) : null}
       </View>
 
-      <View style={styles.tabs}>
+      <View style={styles.tabContainer}>
         {(['scan', 'search'] as const).map((item) => {
           const active = mode === item;
           return (
             <TouchableOpacity
               key={item}
-              style={[styles.tab, active && { backgroundColor: colors.primary }]}
+              style={[styles.tabButton, active && styles.activeTabButton]}
               onPress={() => setMode(item)}
             >
-              <Ionicons name={item === 'scan' ? 'barcode-outline' : 'search'} size={16} color={active ? '#fff' : colors.text} />
-              <Text style={[styles.tabText, { color: active ? '#fff' : colors.text }]}>
+              <Ionicons
+                name={item === 'scan' ? 'barcode-outline' : 'search'}
+                size={16}
+                color={active ? '#FFFFFF' : '#A0AEC0'}
+              />
+              <Text style={[styles.tabText, active ? styles.activeTabText : styles.inactiveTabText]}>
                 {item === 'scan' ? 'Scan barcode' : 'Type a food'}
               </Text>
             </TouchableOpacity>
@@ -211,24 +231,26 @@ export default function SafeSnackerScreen() {
       {mode === 'scan' ? (
         <View style={styles.scannerWrap}>
           {!permission?.granted ? (
-            <View style={styles.permissionBox}>
-              <Ionicons name="camera-outline" size={42} color={colors.primary} />
-              <Text style={[styles.permissionText, { color: colors.text }]}>
-                Camera access is needed to read food barcodes.
-              </Text>
-              <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: colors.primary }]} onPress={requestPermission}>
-                <Text style={styles.primaryBtnText}>Allow camera</Text>
-              </TouchableOpacity>
+            <View style={styles.permissionCard}>
+              <View style={styles.permissionBox}>
+                <Ionicons name="camera-outline" size={48} color="#FF8C42" style={styles.permissionIcon} />
+                <Text style={styles.permissionText}>Camera access is needed to read food barcodes.</Text>
+                <TouchableOpacity style={styles.allowCameraButton} onPress={requestPermission}>
+                  <Text style={styles.allowCameraText}>Allow camera</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ) : (
-            <CameraView
-              style={styles.camera}
-              facing="back"
-              barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }}
-              onBarcodeScanned={loading ? undefined : ({ data }) => void onBarcode(data)}
-            />
+            <>
+              <CameraView
+                style={styles.camera}
+                facing="back"
+                barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }}
+                onBarcodeScanned={loading ? undefined : ({ data }) => void onBarcode(data)}
+              />
+              <View pointerEvents="none" style={styles.frame} />
+            </>
           )}
-          <View pointerEvents="none" style={styles.frame} />
         </View>
       ) : (
         <View style={styles.searchBox}>
@@ -344,20 +366,32 @@ const styles = StyleSheet.create({
   emoji: { fontSize: 24 },
   petName: { marginTop: 4, fontSize: 12, fontWeight: '600' },
   emptyPets: { padding: 16, fontSize: 14 },
+  petLoading: { marginVertical: 18 },
   checking: { paddingHorizontal: 16, paddingTop: 6, fontSize: 12 },
-  tabs: { flexDirection: 'row', gap: 8, padding: 16 },
-  tab: {
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#1C2431',
+    borderRadius: 12,
+    padding: 4,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  tabButton: {
     flex: 1,
     flexDirection: 'row',
     gap: 6,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
+    borderRadius: 8,
+    backgroundColor: 'transparent',
   },
-  tabText: { fontWeight: '700', fontSize: 14 },
-  scannerWrap: { marginHorizontal: 16, height: 280, borderRadius: 18, overflow: 'hidden', backgroundColor: '#111' },
+  activeTabButton: { backgroundColor: '#FF8C42' },
+  tabText: { fontSize: 14, fontWeight: '600' },
+  activeTabText: { color: '#FFFFFF' },
+  inactiveTabText: { color: '#A0AEC0' },
+  scannerWrap: { marginHorizontal: 16, height: 320, borderRadius: 18, overflow: 'hidden', backgroundColor: '#121824' },
   camera: { flex: 1 },
   frame: {
     position: 'absolute',
@@ -369,8 +403,38 @@ const styles = StyleSheet.create({
     borderColor: '#FF8C42',
     borderRadius: 16,
   },
-  permissionBox: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20, gap: 12 },
-  permissionText: { textAlign: 'center', fontSize: 15 },
+  permissionCard: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  permissionBox: {
+    width: '100%',
+    borderWidth: 2,
+    borderColor: '#FF8C42',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    backgroundColor: '#121824',
+  },
+  permissionIcon: { marginBottom: 12 },
+  permissionText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  allowCameraButton: {
+    backgroundColor: '#FF8C42',
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  allowCameraText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   searchBox: { paddingHorizontal: 16, gap: 12 },
   input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 16 },
   primaryBtn: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 8 },
