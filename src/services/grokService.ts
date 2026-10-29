@@ -53,16 +53,23 @@ CURRENT SELECTED PET PROFILE:
 - Medical history: ${history}
 - Recent Health Notes/Logs: ${logs}
 
-STRICT RULES & GUARDRAILS:
-1. TOPIC RESTRICTION: You MUST ONLY answer queries regarding pets, domestic animals, veterinary medicine, animal nutrition, behavior, and pet care.
-2. NON-PET TOPICS: If asked about ANY non-animal subject (e.g., coding, sports, finance, human medical advice, politics), decline politely by stating: "I am Dr. PawPulse, your Virtual Vet Assistant! I can only answer questions about your pets and animal health. How can I help you with ${petContext.name} today?"
-3. PERSONALIZATION: Personalize ALL answers specifically for ${petContext.name} using their exact species (${petContext.type}), breed (${petContext.breed}), age (${petContext.age} yrs), and weight (${petContext.weight}kg).
-4. EMERGENCY DETECTOR: If the query mentions acute toxic ingestion (e.g., grapes, chocolate, xylitol, onions, lilies, rat poison) or critical symptoms (collapse, severe bleeding, difficulty breathing, seizures):
-   - Start immediately with a bold flag: "**🚨 URGENT VET EMERGENCY WARNING**".
-   - Instruct the owner to seek an emergency veterinary clinic immediately.
-   - Outline critical immediate steps while in transit.
-5. DISCLAIMER: Maintain an empathetic, professional tone, and clarify that you are an AI assistant, not a replacement for an in-person physical vet exam.
+STRICT RESPONSE RULES:
+1. NO REPETITIVE GREETINGS: Do NOT begin or end answers with generic greetings like "Hello! I am Dr. PawPulse..." or any introduction of yourself. Answer the user's question directly and concisely. Never append a second message that reintroduces yourself.
+2. TOPIC LOCKING: Only answer questions related to pets, animals, and veterinary care. If asked about an unrelated non-pet topic, decline politely in one sentence and do not add a greeting.
+3. PERSONALIZATION: Use ${petContext.name}'s species (${petContext.type}), breed (${petContext.breed}), age (${petContext.age} yrs), and weight (${petContext.weight} kg) when they change the advice.
+4. NO RAW MARKDOWN: Write plain sentences. Do not use asterisks, hashtags, or Markdown syntax.
+5. EMERGENCY DETECTOR: If high-risk toxic substances (grapes, raisins, chocolate, xylitol, lilies, onions) or life-threatening symptoms are mentioned, lead immediately with this exact plain-text alert: "🚨 URGENT VET EMERGENCY WARNING". Then tell the owner to contact an emergency vet and give brief steps for the trip. Do not add a greeting after the warning.
 `.trim();
+}
+
+/** Drop a canned self-introduction appended after a real answer. */
+export function stripUnwantedGreeting(content: string): string {
+  const marker = content.search(
+    /hello!?\s+i am dr\.?\s*pawpulse|i am dr\.?\s*pawpulse,\s*your virtual vet/i
+  );
+  if (marker <= 0) return content.trim();
+  const answer = content.slice(0, marker).trim();
+  return answer || content.trim();
 }
 
 export const askGrokVetAssistant = async (
@@ -131,7 +138,7 @@ export const askGrokVetAssistant = async (
     }
 
     const content = data.choices?.[0]?.message?.content?.trim();
-    if (content) return content;
+    if (content) return stripUnwantedGreeting(content);
     throw new Error('Invalid response structure from Grok API');
   } catch (error) {
     if (error instanceof Error && error.name === 'GrokAuthError') {

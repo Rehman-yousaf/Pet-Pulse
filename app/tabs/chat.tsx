@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -67,15 +67,48 @@ function summarizeLogs(logs: LogEntry[]): string[] {
     .filter(Boolean);
 }
 
+function renderInline(text: string, keyPrefix: string) {
+  const pattern = /(\*\*\*[^*]+?\*\*\*|\*\*[^*]+?\*\*|\*[^*\n]+?\*|_[^_\n]+?_)/g;
+  const nodes: ReactNode[] = [];
+  let last = 0;
+  let index = 0;
+  for (const match of text.matchAll(pattern)) {
+    const start = match.index ?? 0;
+    if (start > last) nodes.push(text.slice(last, start));
+    const token = match[0];
+    const boldItalic = token.startsWith('***');
+    const bold = !boldItalic && token.startsWith('**');
+    const inner = boldItalic ? token.slice(3, -3) : bold ? token.slice(2, -2) : token.slice(1, -1);
+    nodes.push(
+      <Text
+        key={`${keyPrefix}-${index}`}
+        style={boldItalic ? styles.boldItalic : bold ? styles.bold : styles.italic}
+      >
+        {inner}
+      </Text>
+    );
+    last = start + token.length;
+    index += 1;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
 function MessageText({ content, color }: { content: string; color: string }) {
-  const parts = content.split(/(\*\*[^*]+\*\*)/g);
+  const lines = content.replace(/\r\n/g, '\n').split('\n');
   return (
     <Text style={[styles.bubbleText, { color }]}>
-      {parts.map((part, index) => {
-        const bold = part.startsWith('**') && part.endsWith('**') && part.length > 4;
+      {lines.map((line, lineIndex) => {
+        const heading = /^(#{1,6})\s+(.*)$/.exec(line);
+        const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
+        const numbered = /^\s*(\d+)\.\s+(.*)$/.exec(line);
+        const body = heading?.[2] ?? bullet?.[1] ?? numbered?.[2] ?? line;
+        const prefix = bullet ? '• ' : numbered ? `${numbered[1]}. ` : '';
         return (
-          <Text key={`${index}-${part.slice(0, 12)}`} style={bold ? styles.bold : undefined}>
-            {bold ? part.slice(2, -2) : part}
+          <Text key={`line-${lineIndex}`} style={heading ? styles.bold : undefined}>
+            {lineIndex > 0 ? '\n' : ''}
+            {prefix}
+            {renderInline(body, `l${lineIndex}`)}
           </Text>
         );
       })}
@@ -456,6 +489,8 @@ const styles = StyleSheet.create({
   emptyPets: { paddingHorizontal: 16, paddingTop: 12, fontSize: 14 },
   chattingAbout: { paddingHorizontal: 16, paddingTop: 8, fontSize: 12 },
   bold: { fontWeight: '700' },
+  italic: { fontStyle: 'italic' },
+  boldItalic: { fontWeight: '700', fontStyle: 'italic' },
   disclaimer: {
     backgroundColor: '#FFF6EE',
     paddingVertical: 8,
