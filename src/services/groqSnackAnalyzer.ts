@@ -1,13 +1,14 @@
 /**
  * Groq safety check for a food item against the selected pet.
- * Uses the model available on this project's Groq key.
  */
 
 import Constants from 'expo-constants';
 import type { PetContext } from '@/src/services/grokService';
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = 'qwen/qwen3.8-27b';
+// llama-3.3-70b-versatile and llama-3.1-8b-instant are not on this Groq account.
+// qwen/qwen3.8-27b is, and it accepts JSON mode.
+const MODELS = ['qwen/qwen3.8-27b', 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant'];
 
 export interface SnackSafetyResult {
   status: 'SAFE' | 'CAUTION' | 'TOXIC';
@@ -25,48 +26,40 @@ function getApiKey(): string | null {
   return key && key.trim() ? key.trim() : null;
 }
 
-function fallback(petName: string): SnackSafetyResult {
-  return {
-    status: 'CAUTION',
-    safetyScore: 50,
-    title: 'Analysis Unavailable',
-    toxicIngredients: [],
-    summary: `Unable to complete a real-time safety evaluation for ${petName}. Please consult your vet before feeding this snack.`,
-    portionGuide: 'Do not feed until verified.',
-    caloricImpact: 'Unknown',
-  };
-}
-
-function asResult(value: unknown, petName: string): SnackSafetyResult {
-  if (!value || typeof value !== 'object') return fallback(petName);
-  const raw = value as Partial<SnackSafetyResult>;
-  const status = raw.status === 'SAFE' || raw.status === 'TOXIC' || raw.status === 'CAUTION' ? raw.status : 'CAUTION';
+function asResult(value: unknown): SnackSafetyResult {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Groq returned JSON that is not a safety result');
+  }
+  const raw = value as Partial<SnackSafetyResult> & { status?: string };
+  const statusText = String(raw.status || '').toUpperCase();
+  const status = statusText === 'SAFE' || statusText === 'TOXIC' || statusText === 'CAUTION' ? statusText : null;
+  if (!status) throw new Error(`Groq status was "${raw.status ?? ''}"`);
   const score = Number(raw.safetyScore);
   return {
     status,
     safetyScore: Number.isFinite(score) ? Math.max(0, Math.min(100, Math.round(score))) : 50,
-    title: typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() : 'Safety check',
+    title: typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() : status,
     toxicIngredients: Array.isArray(raw.toxicIngredients)
       ? raw.toxicIngredients.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
       : [],
-    summary: typeof raw.summary === 'string' && raw.summary.trim() ? raw.summary.trim() : fallback(petName).summary,
-    portionGuide:
-      typeof raw.portionGuide === 'string' && raw.portionGuide.trim()
-        ? raw.portionGuide.trim()
-        : 'Ask your vet before offering a portion.',
-    caloricImpact:
-      typeof raw.caloricImpact === 'string' && raw.caloricImpact.trim() ? raw.caloricImpact.trim() : 'Unknown',
+    summary: typeof raw.summary === 'string' ? raw.summary.trim() : '',
+    portionGuide: typeof raw.portionGuide === 'string' ? raw.portionGuide.trim() : '',
+    caloricImpact: typeof raw.caloricImpact === 'string' ? raw.caloricImpact.trim() : '',
   };
 }
 
-function extractJson(text: string): unknown {
-  const trimmed = text.trim();
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const body = fenced?.[1]?.trim() || trimmed;
-  const start = body.indexOf('{');
-  const end = body.lastIndexOf('}');
-  if (start === -1 || end <= start) throw new Error('No JSON object in Groq reply');
-  return JSON.parse(body.slice(start, end + 1));
+function parseContent(rawContent: string): SnackSafetyResult {
+  const cleaned = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start === -1 || end <= start) {
+    throw new Error('Groq reply did not contain JSON');
+  }
+  return asResult(JSON.parse(cleaned.slice(start, end + 1)));
+}
+
+function modelMissing(status: number, message: string): boolean {
+  return status === 404 || /model .* does not exist|decommissioned|not found/i.test(message);
 }
 
 export async function analyzeSnackSafetyWithGroq(
@@ -76,38 +69,42 @@ export async function analyzeSnackSafetyWithGroq(
 ): Promise<SnackSafetyResult> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    throw new Error('GROQ API Key is missing in environment variables.');
+    console.log('[SafeSnacker] GROQ key missing from EXPO_PUBLIC_GROQ_API_KEY');
+    throw new Error('GROQ API Key is missing');
   }
 
-  const systemPrompt = `
-You are an expert veterinary toxicologist and animal nutritionist for the PetPulse app.
+  const prompt = `
+You are a veterinary toxicologist analyzing food for a pet.
 
-TARGET PET PROFILE:
+PET DETAILS:
 - Name: ${petContext.name}
-- Species/Type: ${petContext.type}
+- Type/Species: ${petContext.type}
 - Breed: ${petContext.breed}
 - Weight: ${petContext.weight} kg
 
-FOOD ITEM TO EVALUATE:
-- Item Name: ${foodName}
-- Ingredients/Description: ${ingredients}
+FOOD ITEM:
+- Name: ${foodName}
+- Ingredients/Context: ${ingredients || 'Standard human/pet food'}
 
-TASK:
-Analyze if this food is safe for ${petContext.name} (${petContext.breed}, ${petContext.weight}kg).
-Return ONLY a strictly valid JSON object matching this schema:
+CRITICAL INSTRUCTIONS:
+Evaluate if this food is safe for ${petContext.name}.
+You MUST return ONLY a raw JSON object (no markdown, no backticks) with these exact keys:
 {
-  "status": "SAFE" | "CAUTION" | "TOXIC",
-  "safetyScore": <number from 0 to 100>,
-  "title": "<Short punchy title verdict>",
-  "toxicIngredients": ["<ingredient1>"],
-  "summary": "<2-sentence explanation tailored specifically to ${petContext.name}>",
-  "portionGuide": "<Recommended portion for a ${petContext.weight}kg ${petContext.type}>",
-  "caloricImpact": "<Brief calorie impact>"
+  "status": "SAFE" or "CAUTION" or "TOXIC",
+  "safetyScore": <number 0-100>,
+  "title": "<short verdict>",
+  "toxicIngredients": ["<ingredient>"],
+  "summary": "<2 sentences for ${petContext.name}>",
+  "portionGuide": "<portion for a ${petContext.weight}kg ${petContext.type}>",
+  "caloricImpact": "<calorie comment>"
 }
-Do not include markdown or any text outside the JSON object.
+Use uppercase status values.
 `.trim();
 
-  try {
+  console.log('[SafeSnacker] Groq request', { foodName, pet: petContext.name, weight: petContext.weight });
+
+  let lastError = 'Groq request failed';
+  for (const model of MODELS) {
     const response = await fetch(GROQ_URL, {
       method: 'POST',
       headers: {
@@ -115,27 +112,52 @@ Do not include markdown or any text outside the JSON object.
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: MODEL,
-        messages: [{ role: 'system', content: systemPrompt }],
+        model,
+        messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
-        max_tokens: 500,
+        max_tokens: 700,
         response_format: { type: 'json_object' },
       }),
     });
 
-    const data = (await response.json()) as {
+    const rawText = await response.text();
+    console.log('[SafeSnacker] Groq response', model, response.status, rawText.slice(0, 400));
+
+    let data: {
       choices?: Array<{ message?: { content?: string } }>;
       error?: { message?: string };
-    };
+    } = {};
+    try {
+      data = JSON.parse(rawText) as typeof data;
+    } catch {
+      lastError = `Groq returned non-JSON (${response.status})`;
+      continue;
+    }
 
     if (!response.ok) {
-      throw new Error(data.error?.message || `Groq error (${response.status})`);
+      const message = data.error?.message || `Groq API returned status ${response.status}`;
+      if (modelMissing(response.status, message)) {
+        console.log('[SafeSnacker] skipping model', model, message);
+        lastError = message;
+        continue;
+      }
+      throw new Error(message);
     }
 
     const rawContent = data.choices?.[0]?.message?.content?.trim();
-    if (!rawContent) throw new Error('Invalid response structure from GROQ API');
-    return asResult(extractJson(rawContent), petContext.name);
-  } catch {
-    return fallback(petContext.name);
+    if (!rawContent) {
+      lastError = `Empty response from ${model}`;
+      continue;
+    }
+    try {
+      const parsed = parseContent(rawContent);
+      console.log('[SafeSnacker] parsed', parsed.status, parsed.safetyScore, parsed.title);
+      return parsed;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : 'Could not parse Groq JSON';
+      console.log('[SafeSnacker] parse failed', model, lastError);
+    }
   }
+
+  throw new Error(lastError);
 }

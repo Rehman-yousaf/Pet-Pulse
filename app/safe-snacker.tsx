@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -25,10 +26,22 @@ import { PET_TYPES, getPetEmoji } from '@/src/utils/Helpers';
 
 type Mode = 'scan' | 'search';
 
+function adviceBadge(result: SnackSafetyResult): { label: string; color: string } {
+  const portion = result.portionGuide.toLowerCase();
+  const blocked = /\b0\s*g\b/.test(portion) || portion.includes('do not feed');
+  if (blocked || result.status === 'TOXIC' || result.safetyScore <= 40) {
+    return { label: 'Do Not Feed', color: '#FF3B30' };
+  }
+  if (result.status === 'CAUTION' || (result.safetyScore > 40 && result.safetyScore <= 75)) {
+    return { label: 'Feed with Caution / Small Portion', color: '#FF9500' };
+  }
+  return { label: 'Safe in Moderation', color: '#34C759' };
+}
+
 const VERDICT = {
-  SAFE: { color: '#34C759', label: 'Safe', banner: 'OK to offer in the suggested portion' },
-  CAUTION: { color: '#FF9500', label: 'Caution', banner: 'Only a small portion, if at all' },
-  TOXIC: { color: '#FF3B30', label: 'Toxic', banner: 'DO NOT FEED' },
+  SAFE: { color: '#34C759', label: 'Safe' },
+  CAUTION: { color: '#FF9500', label: 'Caution' },
+  TOXIC: { color: '#FF3B30', label: 'Toxic' },
 } as const;
 
 function speciesLabel(type: string): string {
@@ -101,6 +114,11 @@ export default function SafeSnackerScreen() {
             ? Haptics.NotificationFeedbackType.Success
             : Haptics.NotificationFeedbackType.Warning;
       await Haptics.notificationAsync(haptic);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Safety check failed';
+      console.log('[SafeSnacker] analysis failed', message);
+      setLookupError(message);
+      Alert.alert('Safety check failed', message);
     } finally {
       setLoading(false);
       setStatusText('');
@@ -114,14 +132,15 @@ export default function SafeSnackerScreen() {
       scanLock.current = true;
       setLookupError(null);
       setLoading(true);
-      setStatusText('Looking up product...');
+      setStatusText('Looking up barcode...');
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      console.log('[SafeSnacker] barcode', barcode);
       const found = await fetchProductByBarcode(barcode);
       if (!found) {
         setLoading(false);
         setStatusText('');
-        setLookupError('No product found for that barcode. Try typing the food instead.');
         scanLock.current = false;
+        Alert.alert('Barcode not found', 'Product barcode not found in database. Please use manual food search.');
         return;
       }
       await finishWith(found.productName, `${found.brand ? found.brand + '. ' : ''}${found.ingredientsText}`, found);
@@ -137,6 +156,7 @@ export default function SafeSnackerScreen() {
   }, [finishWith, loading, query]);
 
   const verdict = result ? VERDICT[result.status] : null;
+  const advice = result ? adviceBadge(result) : null;
 
   return (
     <KeyboardAvoidingView
@@ -204,7 +224,7 @@ export default function SafeSnackerScreen() {
             <CameraView
               style={styles.camera}
               facing="back"
-              barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'qr'] }}
+              barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }}
               onBarcodeScanned={loading ? undefined : ({ data }) => void onBarcode(data)}
             />
           )}
@@ -248,7 +268,7 @@ export default function SafeSnackerScreen() {
               <Text style={[styles.foodName, { color: colors.text }]}>{product?.productName || query.trim()}</Text>
               {product?.brand ? <Text style={[styles.brand, { color: colors.grey }]}>{product.brand}</Text> : null}
 
-              {result && verdict ? (
+              {result && verdict && advice ? (
                 <>
                   <View style={[styles.badge, { backgroundColor: verdict.color }]}>
                     <Ionicons
@@ -258,8 +278,8 @@ export default function SafeSnackerScreen() {
                     />
                     <Text style={styles.badgeText}>{result.title}</Text>
                   </View>
-                  <View style={[styles.banner, { borderColor: verdict.color, backgroundColor: verdict.color + '18' }]}>
-                    <Text style={[styles.bannerText, { color: verdict.color }]}>{verdict.banner}</Text>
+                  <View style={[styles.banner, { borderColor: advice.color, backgroundColor: advice.color + '18' }]}>
+                    <Text style={[styles.bannerText, { color: advice.color }]}>{advice.label}</Text>
                   </View>
 
                   <View style={styles.scoreRow}>
