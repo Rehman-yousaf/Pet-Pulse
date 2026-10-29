@@ -67,6 +67,16 @@ function ThemedStack() {
         <Stack.Screen name="pet/[petId]" options={{ headerShown: false }} />
         <Stack.Screen name="history/[petId]" options={{ headerShown: false }} />
         <Stack.Screen
+          name="safe-snacker"
+          options={{
+            title: 'AI Safe Snacker',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: '#fff',
+            headerBackTitle: 'Back',
+          }}
+        />
+        <Stack.Screen
           name="vet-visits"
           options={{
             title: 'Vet visits',

@@ -42,6 +42,12 @@ module.exports = {
             'PetPulse uses your location to show nearby veterinary clinics.',
         },
       ],
+      [
+        'expo-camera',
+        {
+          cameraPermission: 'PetPulse uses the camera to scan food barcodes for Safe Snacker.',
+        },
+      ],
     ],
     extra: {
       GROQ_API_KEY: process.env.EXPO_PUBLIC_GROQ_API_KEY ?? '',

@@ -117,6 +117,23 @@ export function MainDashboardUI() {
         <Ionicons name="chevron-forward" size={22} color="#fff" />
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={[styles.snackCard, { backgroundColor: colors.card, borderColor: colors.primary }]}
+        onPress={() => router.push('/safe-snacker' as any)}
+        activeOpacity={0.85}
+      >
+        <View style={styles.vetCardLeft}>
+          <View style={[styles.snackIconWrap, { backgroundColor: colors.primary }]}>
+            <Ionicons name="barcode-outline" size={24} color="#fff" />
+          </View>
+          <View style={styles.snackCopy}>
+            <Text style={[styles.snackTitle, { color: colors.text }]}>Safe Snacker</Text>
+            <Text style={[styles.snackSubtitle, { color: colors.grey }]}>Scan a barcode or check a food</Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={22} color={colors.primary} />
+      </TouchableOpacity>
+
       <View style={[styles.pawInsightCard, { backgroundColor: colors.card, borderColor: colors.grey + '30' }]}>
         <View style={styles.pawInsightHeader}>
           <Text style={[styles.pawInsightTitle, { color: colors.text }]}>Daily Paw Insight 🐾</Text>
@@ -309,6 +326,26 @@ const styles = StyleSheet.create({
   },
   vetCardTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
   vetCardSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 2 },
+  snackCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 12,
+    borderWidth: 1,
+  },
+  snackIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  snackCopy: { flex: 1 },
+  snackTitle: { fontSize: 18, fontWeight: '700' },
+  snackSubtitle: { fontSize: 13, marginTop: 2 },
   pawInsightCard: {
     borderRadius: 16,
     padding: 18,
